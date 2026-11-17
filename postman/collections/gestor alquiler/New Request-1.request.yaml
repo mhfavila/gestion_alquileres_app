@@ -1,0 +1,7 @@
+$kind: http-request
+name: New Request
+url: http://localhost:8080/api/inmobiliaria/inmuebles
+method: GET
+headers:
+  X-Context-Id: REAL_ESTATE
+order: 3000

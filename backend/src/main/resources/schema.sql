@@ -1,6 +1,14 @@
 -- Libro mayor compartido. El mismo valor de contexto en el apunte
 -- referencia a la vez wallet y categoría, así no se pueden mezclar contextos.
 
+-- Orden de creación respetando dependencias de foreign keys
+-- 1. wallets (sin dependencias)
+-- 2. categorias (sin dependencias)
+-- 3. inmuebles (sin dependencias)
+-- 4. inquilinos (sin dependencias)
+-- 5. contratos (depende de inmuebles e inquilinos)
+-- 6. transacciones (depende de wallets, categorias, inmuebles, contratos)
+
 CREATE TABLE IF NOT EXISTS wallets (
     id       BIGSERIAL PRIMARY KEY,
     nombre   VARCHAR(120) NOT NULL,
@@ -15,28 +23,6 @@ CREATE TABLE IF NOT EXISTS categorias (
     CONSTRAINT uq_categorias_nombre_contexto UNIQUE (nombre, contexto),
     CONSTRAINT uq_categorias_id_contexto UNIQUE (id, contexto)
 );
-
-CREATE TABLE IF NOT EXISTS transacciones (
-    id              BIGSERIAL PRIMARY KEY,
-    importe         NUMERIC(14, 2) NOT NULL CHECK (importe > 0),
-    tipo            VARCHAR(10)    NOT NULL CHECK (tipo IN ('INGRESO', 'GASTO')),
-    fecha           DATE           NOT NULL,
-    descripcion     VARCHAR(500),
-    contexto        VARCHAR(20)    NOT NULL CHECK (contexto IN ('REAL_ESTATE', 'HOME', 'PERSONAL')),
-    wallet_id       BIGINT         NOT NULL,
-    categoria_id    BIGINT         NOT NULL,
-    url_comprobante VARCHAR(1000),
-    ocr_procesado   BOOLEAN        NOT NULL DEFAULT FALSE,
-    CONSTRAINT fk_transacciones_wallet
-        FOREIGN KEY (wallet_id, contexto) REFERENCES wallets (id, contexto),
-    CONSTRAINT fk_transacciones_categoria
-        FOREIGN KEY (categoria_id, contexto) REFERENCES categorias (id, contexto)
-);
-
-CREATE INDEX IF NOT EXISTS idx_wallets_contexto ON wallets (contexto);
-CREATE INDEX IF NOT EXISTS idx_categorias_contexto ON categorias (contexto);
-CREATE INDEX IF NOT EXISTS idx_transacciones_wallet_fecha ON transacciones (wallet_id, fecha);
-CREATE INDEX IF NOT EXISTS idx_transacciones_categoria ON transacciones (categoria_id);
 
 CREATE TABLE IF NOT EXISTS inmuebles (
     id         BIGSERIAL PRIMARY KEY,
@@ -59,10 +45,6 @@ CREATE TABLE IF NOT EXISTS inquilinos (
     CONSTRAINT uq_inquilinos_id_contexto UNIQUE (id, contexto)
 );
 
-CREATE INDEX IF NOT EXISTS idx_inquilinos_documento
-    ON inquilinos (documento)
-    WHERE documento IS NOT NULL;
-
 CREATE TABLE IF NOT EXISTS contratos (
     id              BIGSERIAL PRIMARY KEY,
     inmueble_id     BIGINT         NOT NULL,
@@ -80,8 +62,43 @@ CREATE TABLE IF NOT EXISTS contratos (
     CONSTRAINT uq_contratos_id_contexto UNIQUE (id, contexto)
 );
 
+CREATE TABLE IF NOT EXISTS transacciones (
+    id              BIGSERIAL PRIMARY KEY,
+    importe         NUMERIC(14, 2) NOT NULL CHECK (importe > 0),
+    tipo            VARCHAR(10)    NOT NULL CHECK (tipo IN ('INGRESO', 'GASTO')),
+    fecha           DATE           NOT NULL,
+    descripcion     VARCHAR(500),
+    contexto        VARCHAR(20)    NOT NULL CHECK (contexto IN ('REAL_ESTATE', 'HOME', 'PERSONAL')),
+    wallet_id       BIGINT         NOT NULL,
+    categoria_id    BIGINT         NOT NULL,
+    inmueble_id     BIGINT,
+    contrato_id     BIGINT,
+    url_comprobante VARCHAR(1000),
+    ocr_procesado   BOOLEAN        NOT NULL DEFAULT FALSE,
+    traspaso_par_id BIGINT,
+    CONSTRAINT fk_transacciones_wallet
+        FOREIGN KEY (wallet_id, contexto) REFERENCES wallets (id, contexto),
+    CONSTRAINT fk_transacciones_categoria
+        FOREIGN KEY (categoria_id, contexto) REFERENCES categorias (id, contexto),
+    CONSTRAINT fk_transacciones_inmueble
+        FOREIGN KEY (inmueble_id, contexto) REFERENCES inmuebles (id, contexto),
+    CONSTRAINT fk_transacciones_contrato
+        FOREIGN KEY (contrato_id, contexto) REFERENCES contratos (id, contexto)
+);
+
+ALTER TABLE transacciones ADD COLUMN IF NOT EXISTS traspaso_par_id BIGINT;
+
+-- Índices para optimizar consultas por contexto
+CREATE INDEX IF NOT EXISTS idx_wallets_contexto ON wallets (contexto);
+CREATE INDEX IF NOT EXISTS idx_categorias_contexto ON categorias (contexto);
 CREATE INDEX IF NOT EXISTS idx_inmuebles_contexto ON inmuebles (contexto);
 CREATE INDEX IF NOT EXISTS idx_inquilinos_contexto ON inquilinos (contexto);
+CREATE INDEX IF NOT EXISTS idx_inquilinos_documento ON inquilinos (documento) WHERE documento IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_contratos_contexto ON contratos (contexto);
 CREATE INDEX IF NOT EXISTS idx_contratos_inmueble ON contratos (inmueble_id);
 CREATE INDEX IF NOT EXISTS idx_contratos_inquilino ON contratos (inquilino_id);
-CREATE INDEX IF NOT EXISTS idx_contratos_contexto ON contratos (contexto);
+CREATE INDEX IF NOT EXISTS idx_transacciones_contexto ON transacciones (contexto);
+CREATE INDEX IF NOT EXISTS idx_transacciones_wallet_fecha ON transacciones (wallet_id, fecha);
+CREATE INDEX IF NOT EXISTS idx_transacciones_categoria ON transacciones (categoria_id);
+CREATE INDEX IF NOT EXISTS idx_transacciones_inmueble ON transacciones (inmueble_id) WHERE inmueble_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_transacciones_contrato ON transacciones (contrato_id) WHERE contrato_id IS NOT NULL;

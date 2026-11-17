@@ -17,7 +17,7 @@ import java.util.Locale;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ContextFilter extends OncePerRequestFilter {
 
-    static final String PREFIJO = "/api/finanzas";
+    static final String PREFIJO = "/api";
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {

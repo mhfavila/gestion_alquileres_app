@@ -1,10 +1,10 @@
 package com.gestion.alquileres.finanzas;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gestion.alquileres.comun.Contexto;
 import com.gestion.alquileres.comun.TipoTransaccion;
+import com.gestion.alquileres.inmobiliaria.Contrato;
+import com.gestion.alquileres.inmobiliaria.Inmueble;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,8 +18,12 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "transacciones")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Transaccion {
 
     @Id
@@ -51,11 +55,22 @@ public class Transaccion {
     @JoinColumn(name = "categoria_id", nullable = false)
     private Categoria categoria;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "inmueble_id")
+    private Inmueble inmueble;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contrato_id")
+    private Contrato contrato;
+
     @Column(name = "url_comprobante", length = 1000)
     private String urlComprobante;
 
     @Column(name = "ocr_procesado", nullable = false)
     private boolean ocrProcesado = false;
+
+    @Column(name = "traspaso_par_id")
+    private Long traspasoParId;
 
     protected Transaccion() {
     }
@@ -133,6 +148,22 @@ public class Transaccion {
         this.categoria = categoria;
     }
 
+    public Inmueble getInmueble() {
+        return inmueble;
+    }
+
+    public void setInmueble(Inmueble inmueble) {
+        this.inmueble = inmueble;
+    }
+
+    public Contrato getContrato() {
+        return contrato;
+    }
+
+    public void setContrato(Contrato contrato) {
+        this.contrato = contrato;
+    }
+
     public String getUrlComprobante() {
         return urlComprobante;
     }
@@ -147,6 +178,14 @@ public class Transaccion {
 
     public void setOcrProcesado(boolean ocrProcesado) {
         this.ocrProcesado = ocrProcesado;
+    }
+
+    public Long getTraspasoParId() {
+        return traspasoParId;
+    }
+
+    public void setTraspasoParId(Long traspasoParId) {
+        this.traspasoParId = traspasoParId;
     }
 
     public void setContexto(Contexto contexto) {

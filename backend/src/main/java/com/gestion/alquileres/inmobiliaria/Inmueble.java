@@ -1,6 +1,7 @@
 package com.gestion.alquileres.inmobiliaria;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gestion.alquileres.comun.Contexto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,6 +18,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "inmuebles")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Inmueble {
 
     @Id

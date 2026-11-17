@@ -11,4 +11,6 @@ import com.gestion.alquileres.comun.Contexto;
 public interface CategoriaRepository extends JpaRepository<Categoria, Long> {
 
     List<Categoria> findByContextoOrderByNombreAsc(Contexto contexto);
+
+    Categoria findByContextoAndNombreIgnoreCase(Contexto contexto, String nombre);
 }

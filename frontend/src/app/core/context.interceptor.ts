@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { CONTEXTO_HEADER, ContextService } from './context.service';
 
 export const contextInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!req.url.includes('/api/finanzas')) {
+  if (!req.url.includes('/api/finanzas') && !req.url.includes('/api/inmobiliaria')) {
     return next(req);
   }
   const contexto = inject(ContextService).contexto();

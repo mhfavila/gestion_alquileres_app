@@ -2,8 +2,10 @@ package com.gestion.alquileres.inmobiliaria;
 
 import com.gestion.alquileres.comun.Contexto;
 import com.gestion.alquileres.seguridad.ContextoHolder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -59,5 +61,24 @@ public class ContratoService {
         contrato.setContexto(contextoActual);
 
         return repository.save(contrato);
+    }
+
+    @Transactional
+    public void eliminar(Long id) {
+        Contrato contrato = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Contrato no encontrado con ID: " + id));
+
+        if (!contrato.getContexto().equals(ContextoHolder.get())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Contrato pertenece a otro contexto");
+        }
+
+        try {
+            repository.delete(contrato);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No se puede eliminar el contrato porque tiene transacciones asociadas");
+        }
     }
 }
