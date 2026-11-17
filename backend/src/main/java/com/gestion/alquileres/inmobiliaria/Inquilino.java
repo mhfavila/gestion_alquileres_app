@@ -1,7 +1,11 @@
 package com.gestion.alquileres.inmobiliaria;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.gestion.alquileres.comun.Contexto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -31,17 +35,23 @@ public class Inquilino {
     @Column(length = 30)
     private String documento;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Contexto contexto;
+
+    @JsonIgnore
     @OneToMany(mappedBy = "inquilino")
     private List<Contrato> contratos = new ArrayList<>();
 
     protected Inquilino() {
     }
 
-    public Inquilino(String nombre, String email, String telefono, String documento) {
+    public Inquilino(String nombre, String email, String telefono, String documento, Contexto contexto) {
         this.nombre = nombre;
         this.email = email;
         this.telefono = telefono;
         this.documento = documento;
+        this.contexto = contexto;
     }
 
     public Long getId() {
@@ -78,6 +88,14 @@ public class Inquilino {
 
     public void setDocumento(String documento) {
         this.documento = documento;
+    }
+
+    public Contexto getContexto() {
+        return contexto;
+    }
+
+    public void setContexto(Contexto contexto) {
+        this.contexto = contexto;
     }
 
     public List<Contrato> getContratos() {

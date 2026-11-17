@@ -1,5 +1,6 @@
 package com.gestion.alquileres.finanzas;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.gestion.alquileres.comun.Contexto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,6 +30,7 @@ public class Wallet {
     @Column(nullable = false, length = 20)
     private Contexto contexto;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "wallet")
     private List<Transaccion> transacciones = new ArrayList<>();
 

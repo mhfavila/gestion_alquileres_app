@@ -1,7 +1,10 @@
 package com.gestion.alquileres.inmobiliaria;
 
+import com.gestion.alquileres.comun.Contexto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -41,17 +44,22 @@ public class Contrato {
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal fianza;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Contexto contexto;
+
     protected Contrato() {
     }
 
     public Contrato(Inmueble inmueble, Inquilino inquilino, LocalDate fechaInicio, LocalDate fechaFin,
-                    BigDecimal importeMensual, BigDecimal fianza) {
+                    BigDecimal importeMensual, BigDecimal fianza, Contexto contexto) {
         this.inmueble = inmueble;
         this.inquilino = inquilino;
         this.fechaInicio = fechaInicio;
         this.fechaFin = fechaFin;
         this.importeMensual = importeMensual;
         this.fianza = fianza;
+        this.contexto = contexto;
     }
 
     public Long getId() {
@@ -104,5 +112,13 @@ public class Contrato {
 
     public void setFianza(BigDecimal fianza) {
         this.fianza = fianza;
+    }
+
+    public Contexto getContexto() {
+        return contexto;
+    }
+
+    public void setContexto(Contexto contexto) {
+        this.contexto = contexto;
     }
 }

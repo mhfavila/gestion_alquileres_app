@@ -42,7 +42,10 @@ CREATE TABLE IF NOT EXISTS inmuebles (
     id         BIGSERIAL PRIMARY KEY,
     tipo       VARCHAR(20)  NOT NULL CHECK (tipo IN ('CHALET', 'PISO', 'LOCAL', 'GARAJE')),
     direccion  VARCHAR(250) NOT NULL,
-    referencia VARCHAR(50)
+    referencia VARCHAR(50),
+    metros     INTEGER,
+    contexto   VARCHAR(20)  NOT NULL CHECK (contexto IN ('REAL_ESTATE', 'HOME', 'PERSONAL')),
+    CONSTRAINT uq_inmuebles_id_contexto UNIQUE (id, contexto)
 );
 
 CREATE TABLE IF NOT EXISTS inquilinos (
@@ -50,23 +53,35 @@ CREATE TABLE IF NOT EXISTS inquilinos (
     nombre    VARCHAR(150) NOT NULL,
     email     VARCHAR(150),
     telefono  VARCHAR(30),
-    documento VARCHAR(30)
+    documento VARCHAR(30),
+    contexto  VARCHAR(20)  NOT NULL CHECK (contexto IN ('REAL_ESTATE', 'HOME', 'PERSONAL')),
+    CONSTRAINT uq_inquilinos_documento_contexto UNIQUE (documento, contexto),
+    CONSTRAINT uq_inquilinos_id_contexto UNIQUE (id, contexto)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_inquilinos_documento
+CREATE INDEX IF NOT EXISTS idx_inquilinos_documento
     ON inquilinos (documento)
     WHERE documento IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS contratos (
     id              BIGSERIAL PRIMARY KEY,
-    inmueble_id     BIGINT         NOT NULL REFERENCES inmuebles (id),
-    inquilino_id    BIGINT         NOT NULL REFERENCES inquilinos (id),
+    inmueble_id     BIGINT         NOT NULL,
+    inquilino_id    BIGINT         NOT NULL,
     fecha_inicio    DATE           NOT NULL,
     fecha_fin       DATE,
     importe_mensual NUMERIC(14, 2) NOT NULL CHECK (importe_mensual > 0),
     fianza          NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (fianza >= 0),
-    CONSTRAINT ck_contratos_fechas CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio)
+    contexto        VARCHAR(20)    NOT NULL CHECK (contexto IN ('REAL_ESTATE', 'HOME', 'PERSONAL')),
+    CONSTRAINT fk_contratos_inmueble
+        FOREIGN KEY (inmueble_id, contexto) REFERENCES inmuebles (id, contexto),
+    CONSTRAINT fk_contratos_inquilino
+        FOREIGN KEY (inquilino_id, contexto) REFERENCES inquilinos (id, contexto),
+    CONSTRAINT ck_contratos_fechas CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio),
+    CONSTRAINT uq_contratos_id_contexto UNIQUE (id, contexto)
 );
 
+CREATE INDEX IF NOT EXISTS idx_inmuebles_contexto ON inmuebles (contexto);
+CREATE INDEX IF NOT EXISTS idx_inquilinos_contexto ON inquilinos (contexto);
 CREATE INDEX IF NOT EXISTS idx_contratos_inmueble ON contratos (inmueble_id);
 CREATE INDEX IF NOT EXISTS idx_contratos_inquilino ON contratos (inquilino_id);
+CREATE INDEX IF NOT EXISTS idx_contratos_contexto ON contratos (contexto);

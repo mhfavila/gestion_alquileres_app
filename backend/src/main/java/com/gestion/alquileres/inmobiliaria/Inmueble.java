@@ -1,5 +1,6 @@
 package com.gestion.alquileres.inmobiliaria;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.gestion.alquileres.comun.Contexto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -39,6 +40,7 @@ public class Inmueble {
     @Column(nullable = false, length = 20)
     private Contexto contexto;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "inmueble")
     private List<Contrato> contratos = new ArrayList<>();
 
