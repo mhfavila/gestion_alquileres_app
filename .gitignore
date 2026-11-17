@@ -1,0 +1,11 @@
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.angular/cache/
+
+.idea/
+*.iml
+.vscode/
+.DS_Store
+*.log
