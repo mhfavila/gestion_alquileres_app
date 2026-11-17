@@ -1,7 +1,11 @@
 package com.gestion.alquileres.finanzas;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
 import com.gestion.alquileres.comun.Contexto;
 import com.gestion.alquileres.comun.TipoTransaccion;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,9 +17,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Entity
 @Table(name = "transacciones")
@@ -60,7 +61,7 @@ public class Transaccion {
     }
 
     public Transaccion(BigDecimal importe, TipoTransaccion tipo, LocalDate fecha, String descripcion,
-                       Wallet wallet, Categoria categoria) {
+            Wallet wallet, Categoria categoria) {
         if (wallet == null || categoria == null || wallet.getContexto() != categoria.getContexto()) {
             throw new IllegalArgumentException("Wallet y categoria deben pertenecer al mismo contexto");
         }
@@ -146,5 +147,9 @@ public class Transaccion {
 
     public void setOcrProcesado(boolean ocrProcesado) {
         this.ocrProcesado = ocrProcesado;
+    }
+
+    public void setContexto(Contexto contexto) {
+        this.contexto = contexto;
     }
 }

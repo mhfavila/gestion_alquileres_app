@@ -1,5 +1,6 @@
 package com.gestion.alquileres.inmobiliaria;
 
+import com.gestion.alquileres.comun.Contexto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -31,16 +32,25 @@ public class Inmueble {
     @Column(length = 50)
     private String referencia;
 
+    @Column
+    private Integer metros;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Contexto contexto;
+
     @OneToMany(mappedBy = "inmueble")
     private List<Contrato> contratos = new ArrayList<>();
 
     protected Inmueble() {
     }
 
-    public Inmueble(TipoInmueble tipo, String direccion, String referencia) {
+    public Inmueble(TipoInmueble tipo, String direccion, String referencia, Integer metros, Contexto contexto) {
         this.tipo = tipo;
         this.direccion = direccion;
         this.referencia = referencia;
+        this.metros = metros;
+        this.contexto = contexto;
     }
 
     public Long getId() {
@@ -69,6 +79,22 @@ public class Inmueble {
 
     public void setReferencia(String referencia) {
         this.referencia = referencia;
+    }
+
+    public Integer getMetros() {
+        return metros;
+    }
+
+    public void setMetros(Integer metros) {
+        this.metros = metros;
+    }
+
+    public Contexto getContexto() {
+        return contexto;
+    }
+
+    public void setContexto(Contexto contexto) {
+        this.contexto = contexto;
     }
 
     public List<Contrato> getContratos() {

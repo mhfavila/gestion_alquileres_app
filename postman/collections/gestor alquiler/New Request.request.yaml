@@ -1,0 +1,31 @@
+$kind: http-request
+url: http://localhost:8080/api/finanzas/transacciones
+method: POST
+headers:
+  X-Context-Id: PERSONAL
+body:
+  type: json
+  content: "{\r
+
+    \    \"importe\": 150.50,\r
+
+    \    \"tipo\": \"GASTO\",\r
+
+    \    \"fecha\": \"2026-11-17\",\r
+
+    \    \"descripcion\": \"Compra de prueba personal\",\r
+
+    \    \"wallet\": {\r
+
+    \        \"id\": 1\r
+
+    \    },\r
+
+    \    \"categoria\": {\r
+
+    \        \"id\": 1\r
+
+    \    }\r
+
+    }"
+order: 2000

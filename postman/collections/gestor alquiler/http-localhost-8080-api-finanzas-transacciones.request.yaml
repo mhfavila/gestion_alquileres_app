@@ -1,0 +1,8 @@
+$kind: http-request
+name: http://localhost:8080/api/finanzas/transacciones
+description: ""
+url: http://localhost:8080/api/finanzas/transacciones
+method: GET
+headers:
+  X-Context-Id: PERSONAL
+order: 1000
