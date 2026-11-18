@@ -180,6 +180,22 @@ public class Transaccion {
         this.ocrProcesado = ocrProcesado;
     }
 
+    public Long getWalletId() {
+        return wallet != null ? wallet.getId() : null;
+    }
+
+    public Long getCategoriaId() {
+        return categoria != null ? categoria.getId() : null;
+    }
+
+    public Long getInmuebleId() {
+        return inmueble != null ? inmueble.getId() : null;
+    }
+
+    public Long getContratoId() {
+        return contrato != null ? contrato.getId() : null;
+    }
+
     public Long getTraspasoParId() {
         return traspasoParId;
     }

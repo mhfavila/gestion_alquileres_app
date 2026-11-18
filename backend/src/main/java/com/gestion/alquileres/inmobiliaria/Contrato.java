@@ -64,6 +64,14 @@ public class Contrato {
         this.contexto = contexto;
     }
 
+    public Long getInmuebleId() {
+        return inmueble != null ? inmueble.getId() : null;
+    }
+
+    public Long getInquilinoId() {
+        return inquilino != null ? inquilino.getId() : null;
+    }
+
     public Long getId() {
         return id;
     }

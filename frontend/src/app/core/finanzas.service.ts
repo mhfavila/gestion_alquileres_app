@@ -15,7 +15,7 @@ export class FinanzasService {
     return this.http.get<Wallet[]>(`${this.baseUrl}/wallets`);
   }
 
-  createWallet(wallet: Omit<Wallet, 'id'>): Observable<Wallet> {
+  createWallet(wallet: Record<string, unknown>): Observable<Wallet> {
     return this.http.post<Wallet>(`${this.baseUrl}/wallets`, wallet);
   }
 
@@ -28,8 +28,12 @@ export class FinanzasService {
     return this.http.get<Categoria[]>(`${this.baseUrl}/categorias`);
   }
 
-  createCategoria(categoria: Omit<Categoria, 'id'>): Observable<Categoria> {
+  createCategoria(categoria: Record<string, unknown>): Observable<Categoria> {
     return this.http.post<Categoria>(`${this.baseUrl}/categorias`, categoria);
+  }
+
+  actualizarCategoria(id: number, categoria: Record<string, unknown>): Observable<Categoria> {
+    return this.http.put<Categoria>(`${this.baseUrl}/categorias/${id}`, categoria);
   }
 
   deleteCategoria(id: number): Observable<void> {
@@ -41,8 +45,12 @@ export class FinanzasService {
     return this.http.get<Transaccion[]>(`${this.baseUrl}/transacciones`);
   }
 
-  createTransaccion(transaccion: Omit<Transaccion, 'id'>): Observable<Transaccion> {
+  createTransaccion(transaccion: Record<string, unknown>): Observable<Transaccion> {
     return this.http.post<Transaccion>(`${this.baseUrl}/transacciones`, transaccion);
+  }
+
+  actualizarTransaccion(id: number, transaccion: Record<string, unknown>): Observable<Transaccion> {
+    return this.http.put<Transaccion>(`${this.baseUrl}/transacciones/${id}`, transaccion);
   }
 
   deleteTransaccion(id: number): Observable<void> {
