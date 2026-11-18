@@ -12,7 +12,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +37,9 @@ public class Wallet {
     @JsonIgnore
     @OneToMany(mappedBy = "wallet")
     private List<Transaccion> transacciones = new ArrayList<>();
+
+    @Transient
+    private BigDecimal saldoActual = BigDecimal.ZERO;
 
     protected Wallet() {
     }
@@ -71,5 +76,17 @@ public class Wallet {
 
     public List<Transaccion> getTransacciones() {
         return transacciones;
+    }
+
+    public BigDecimal getSaldoActual() {
+        return saldoActual != null ? saldoActual : BigDecimal.ZERO;
+    }
+
+    public void setSaldoActual(BigDecimal saldoActual) {
+        this.saldoActual = saldoActual != null ? saldoActual : BigDecimal.ZERO;
+    }
+
+    public BigDecimal getSaldoRealCaja() {
+        return getSaldoActual();
     }
 }

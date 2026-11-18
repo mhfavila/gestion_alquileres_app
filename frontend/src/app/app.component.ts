@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ContextoId, ContextService } from './core/context.service';
+import { ContextoId, ContextService, PIN_STORAGE_KEY } from './core/context.service';
 import { FinanzasService } from './core/finanzas.service';
 import { InmobiliariaService } from './core/inmobiliaria.service';
 import { Wallet, Categoria, Transaccion, Inmueble, Inquilino, Contrato } from './core/models';
@@ -10,10 +10,55 @@ import { Wallet, Categoria, Transaccion, Inmueble, Inquilino, Contrato } from '.
   standalone: true,
   template: `
     <main class="min-h-screen bg-slate-950 text-slate-100">
+      @if (bloqueado()) {
+        <div class="flex min-h-screen items-center justify-center px-4">
+          <div class="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+            <p class="text-xs uppercase tracking-widest text-emerald-400">Acceso protegido</p>
+            <h1 class="mt-1 text-2xl font-semibold">Gestión Multi-Contexto</h1>
+            <p class="mt-2 text-sm text-slate-400">Introduce el PIN maestro para desbloquear la sesión.</p>
+
+            <form (ngSubmit)="desbloquear()" class="mt-6 space-y-4">
+              <div>
+                <input
+                  type="password"
+                  name="pinAcceso"
+                  [ngModel]="pinAccesoInput()"
+                  (ngModelChange)="pinAccesoInput.set($event)"
+                  placeholder="Introduce la clave de acceso"
+                  class="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:border-emerald-400 focus:outline-none"
+                  required
+                  autofocus />
+              </div>
+
+              @if (errorPin()) {
+                <p class="rounded bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                  {{ errorPin() }}
+                </p>
+              }
+
+              <button
+                type="submit"
+                class="w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-medium text-slate-950 hover:bg-emerald-400">
+                Desbloquear
+              </button>
+            </form>
+          </div>
+        </div>
+      } @else {
       <header class="mx-auto max-w-6xl px-6 py-8">
-        <p class="text-xs uppercase tracking-widest text-slate-400">Contexto activo</p>
-        <h1 class="mt-1 text-2xl font-semibold">{{ titulo() }}</h1>
-        <p class="mt-2 text-sm text-slate-400">{{ descripcion() }}</p>
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-slate-400">Contexto activo</p>
+            <h1 class="mt-1 text-2xl font-semibold">{{ titulo() }}</h1>
+            <p class="mt-2 text-sm text-slate-400">{{ descripcion() }}</p>
+          </div>
+          <button
+            type="button"
+            (click)="bloquearSesion()"
+            class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800">
+            🔒 Bloquear
+          </button>
+        </div>
         <div class="mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <nav class="flex flex-wrap gap-2" aria-label="Cambiar contexto">
             @for (opcion of opciones; track opcion.id) {
@@ -31,7 +76,7 @@ import { Wallet, Categoria, Transaccion, Inmueble, Inquilino, Contrato } from '.
             }
           </nav>
 
-          <!-- Barra de filtro de periodo temporal global -->
+          <!-- Barra de filtro de periodo temporal global y exportación CSV -->
           <div class="flex flex-wrap items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 border border-slate-800" aria-label="Filtro de periodo temporal">
             <span class="text-xs font-medium uppercase tracking-wider text-slate-400">Periodo:</span>
             <select
@@ -47,23 +92,30 @@ import { Wallet, Categoria, Transaccion, Inmueble, Inquilino, Contrato } from '.
             @if (modoPeriodo() === 'MENSUAL') {
               <input
                 type="month"
-                name="mesSeleccionado"
-                [ngModel]="mesSeleccionado()"
-                (ngModelChange)="mesSeleccionado.set($event)"
+                name="filtroMes"
+                [ngModel]="filtroMes()"
+                (ngModelChange)="filtroMes.set($event)"
                 class="rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-100 border border-slate-700" />
             }
 
             @if (modoPeriodo() === 'ANUAL') {
               <select
-                name="anioSeleccionado"
-                [ngModel]="anioSeleccionado()"
-                (ngModelChange)="anioSeleccionado.set($event)"
+                name="filtroAnio"
+                [ngModel]="filtroAnio()"
+                (ngModelChange)="filtroAnio.set($event)"
                 class="rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-100 border border-slate-700">
                 @for (anio of aniosDisponibles(); track anio) {
                   <option [value]="anio">{{ anio }}</option>
                 }
               </select>
             }
+
+            <button
+              type="button"
+              (click)="exportarCSV()"
+              class="rounded bg-emerald-500/20 border border-emerald-500/40 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/30">
+              📥 Exportar CSV
+            </button>
           </div>
         </div>
       </header>
@@ -741,6 +793,7 @@ import { Wallet, Categoria, Transaccion, Inmueble, Inquilino, Contrato } from '.
           </section>
         }
       </div>
+      }
     </main>
   `,
   imports: [FormsModule],
@@ -785,10 +838,15 @@ export class AppComponent {
     return this.opciones.filter((op) => op.id !== actual);
   });
 
+  // Seguridad por PIN / Clave Maestra
+  readonly bloqueado = signal<boolean>(!this.tienePinInicial());
+  readonly pinAccesoInput = signal<string>('');
+  readonly errorPin = signal<string>('');
+
   // Filtro de periodo temporal global
   readonly modoPeriodo = signal<'MENSUAL' | 'ANUAL' | 'HISTORICO'>('MENSUAL');
-  readonly mesSeleccionado = signal<string>(new Date().toISOString().slice(0, 7));
-  readonly anioSeleccionado = signal<string>(String(new Date().getFullYear()));
+  readonly filtroMes = signal<string>(new Date().toISOString().slice(0, 7));
+  readonly filtroAnio = signal<string>(String(new Date().getFullYear()));
 
   readonly aniosDisponibles = computed(() => {
     const base = new Set<string>(['2025', '2026', '2027', String(new Date().getFullYear())]);
@@ -804,11 +862,11 @@ export class AppComponent {
     const todas = this.transacciones();
     const modo = this.modoPeriodo();
     if (modo === 'MENSUAL') {
-      const mes = this.mesSeleccionado();
+      const mes = this.filtroMes();
       return mes ? todas.filter((t) => t.fecha.startsWith(mes)) : todas;
     }
     if (modo === 'ANUAL') {
-      const anio = this.anioSeleccionado();
+      const anio = this.filtroAnio();
       return anio ? todas.filter((t) => t.fecha.startsWith(anio)) : todas;
     }
     return todas;
@@ -816,14 +874,14 @@ export class AppComponent {
 
   readonly etiquetaPeriodo = computed(() => {
     const modo = this.modoPeriodo();
-    if (modo === 'MENSUAL') return this.mesSeleccionado() || 'Mensual';
-    if (modo === 'ANUAL') return `Año ${this.anioSeleccionado()}`;
+    if (modo === 'MENSUAL') return this.filtroMes() || 'Mensual';
+    if (modo === 'ANUAL') return `Año ${this.filtroAnio()}`;
     return 'Histórico';
   });
 
   readonly mesReferenciaCobro = computed(() => {
-    if (this.modoPeriodo() === 'MENSUAL' && this.mesSeleccionado()) {
-      return this.mesSeleccionado();
+    if (this.modoPeriodo() === 'MENSUAL' && this.filtroMes()) {
+      return this.filtroMes();
     }
     const ahora = new Date();
     return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
@@ -879,37 +937,135 @@ export class AppComponent {
   constructor() {
     effect(() => {
       this.context.contexto();
-      this.cargarDatos();
+      this.modoPeriodo();
+      this.filtroMes();
+      this.filtroAnio();
+      if (!this.bloqueado()) {
+        this.cargarDatos();
+      }
     }, { allowSignalWrites: true });
   }
 
   ngOnInit(): void {
-    this.cargarDatos();
+    if (!this.bloqueado()) {
+      this.cargarDatos();
+    }
+  }
+
+  private tienePinInicial(): boolean {
+    try {
+      const guardado = localStorage.getItem(PIN_STORAGE_KEY);
+      return !!guardado && guardado.trim().length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  desbloquear(): void {
+    const pin = this.pinAccesoInput().trim();
+    if (!pin) return;
+    try {
+      localStorage.setItem(PIN_STORAGE_KEY, pin);
+    } catch {
+      // Continuar
+    }
+    this.finanzasService.getWallets().subscribe({
+      next: (data) => {
+        this.errorPin.set('');
+        this.pinAccesoInput.set('');
+        this.bloqueado.set(false);
+        this.wallets.set(data);
+        this.cargarDatos();
+      },
+      error: (err) => {
+        try {
+          localStorage.removeItem(PIN_STORAGE_KEY);
+        } catch {
+          // Ignorar
+        }
+        this.bloqueado.set(true);
+        this.errorPin.set(err?.error?.error || 'PIN de acceso inválido o ausente');
+      },
+    });
+  }
+
+  bloquearSesion(): void {
+    try {
+      localStorage.removeItem(PIN_STORAGE_KEY);
+    } catch {
+      // Ignorar
+    }
+    this.pinAccesoInput.set('');
+    this.errorPin.set('');
+    this.bloqueado.set(true);
+  }
+
+  private manejarErrorAuth(err: any): void {
+    if (err?.status === 401) {
+      try {
+        localStorage.removeItem(PIN_STORAGE_KEY);
+      } catch {
+        // Ignorar
+      }
+      this.bloqueado.set(true);
+      this.errorPin.set(err?.error?.error || 'PIN de acceso inválido o ausente');
+    }
   }
 
   cambiar(contexto: ContextoId): void {
     this.context.cambiar(contexto);
   }
 
+  private obtenerFiltroPeriodo(): { mes?: string; anio?: string | number } | undefined {
+    const modo = this.modoPeriodo();
+    if (modo === 'MENSUAL' && this.filtroMes()) {
+      return { mes: this.filtroMes() };
+    }
+    if (modo === 'ANUAL' && this.filtroAnio()) {
+      return { anio: this.filtroAnio() };
+    }
+    return undefined;
+  }
+
   private cargarDatos(): void {
-    this.finanzasService.getWallets().subscribe((data) => {
-      this.wallets.set(data);
-      if (data.length > 0) {
-        this.actualizarTransaccion('walletId', data[0].id);
-      }
+    if (this.bloqueado()) return;
+
+    this.finanzasService.getWallets().subscribe({
+      next: (data) => {
+        this.wallets.set(data);
+        if (data.length > 0) {
+          this.actualizarTransaccion('walletId', data[0].id);
+        }
+      },
+      error: (err) => this.manejarErrorAuth(err),
     });
-    this.finanzasService.getCategorias().subscribe((data) => {
-      this.categorias.set(data);
-      if (data.length > 0 && !this.nuevaTransaccion().categoriaId) {
-        this.actualizarTransaccion('categoriaId', data[0].id);
-      }
+    this.finanzasService.getCategorias().subscribe({
+      next: (data) => {
+        this.categorias.set(data);
+        if (data.length > 0 && !this.nuevaTransaccion().categoriaId) {
+          this.actualizarTransaccion('categoriaId', data[0].id);
+        }
+      },
+      error: (err) => this.manejarErrorAuth(err),
     });
-    this.finanzasService.getTransacciones().subscribe((data) => this.transacciones.set(data));
+    this.finanzasService.getTransacciones(this.obtenerFiltroPeriodo()).subscribe({
+      next: (data) => this.transacciones.set(data),
+      error: (err) => this.manejarErrorAuth(err),
+    });
 
     if (this.esInmobiliario()) {
-      this.inmobiliariaService.getInmuebles().subscribe((data) => this.inmuebles.set(data));
-      this.inmobiliariaService.getInquilinos().subscribe((data) => this.inquilinos.set(data));
-      this.inmobiliariaService.getContratos().subscribe((data) => this.contratos.set(data));
+      this.inmobiliariaService.getInmuebles().subscribe({
+        next: (data) => this.inmuebles.set(data),
+        error: (err) => this.manejarErrorAuth(err),
+      });
+      this.inmobiliariaService.getInquilinos().subscribe({
+        next: (data) => this.inquilinos.set(data),
+        error: (err) => this.manejarErrorAuth(err),
+      });
+      this.inmobiliariaService.getContratos().subscribe({
+        next: (data) => this.contratos.set(data),
+        error: (err) => this.manejarErrorAuth(err),
+      });
     } else {
       this.inmuebles.set([]);
       this.inquilinos.set([]);
@@ -1011,11 +1167,59 @@ export class AppComponent {
   }
 
   calcularSaldo(walletId: number): number {
+    const wallet = this.wallets().find((w) => w.id === walletId);
+    if (wallet && wallet.saldoActual !== undefined && wallet.saldoActual !== null) {
+      return Number(wallet.saldoActual);
+    }
     return this.transacciones()
       .filter((t) => t.walletId === walletId)
       .reduce((acc, t) => {
         return acc + (t.tipo === 'INGRESO' ? t.importe : -t.importe);
       }, 0);
+  }
+
+  exportarCSV(): void {
+    const limpiar = (val: unknown): string =>
+      String(val ?? '')
+        .replace(/;/g, ',')
+        .replace(/\r?\n/g, ' ')
+        .trim();
+
+    const lineas: string[] = [];
+    lineas.push('Fecha;Tipo;Categoría;Importe;Inmueble;Contrato;Descripción');
+
+    for (const t of this.transaccionesFiltradas()) {
+      const cat = limpiar(this.categoriaNombre(t.categoriaId));
+      const inm = t.inmuebleId ? limpiar(this.inmuebleNombre(t.inmuebleId)) : '-';
+      const cont = t.contratoId ? `Contrato #${t.contratoId}` : '-';
+      const imp = `${t.tipo === 'GASTO' ? '-' : ''}${t.importe.toFixed(2)} €`;
+      const desc = limpiar(t.descripcion || '-');
+      lineas.push(`${t.fecha};${t.tipo};${cat};${imp};${inm};${cont};${desc}`);
+    }
+
+    if (this.esInmobiliario() && this.inmuebles().length > 0) {
+      lineas.push('');
+      lineas.push(`Resumen Rentabilidad por Inmueble (${this.etiquetaPeriodo()});Ingresos (€);Gastos (€);Neto (€)`);
+      for (const inm of this.inmuebles()) {
+        const id = inm.id ?? 0;
+        const ing = this.ingresosInmueble(id).toFixed(2);
+        const gas = this.gastosInmueble(id).toFixed(2);
+        const net = this.rendimientoInmueble(id).toFixed(2);
+        lineas.push(`${limpiar(inm.direccion)};+${ing} €;-${gas} €;${net} €`);
+      }
+    }
+
+    const contenido = '\uFEFF' + lineas.join('\r\n');
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    const periodoSafe = this.etiquetaPeriodo().replace(/[^a-zA-Z0-9_-]/g, '_');
+    enlace.href = url;
+    enlace.download = `movimientos_${this.contexto()}_${periodoSafe}.csv`;
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+    URL.revokeObjectURL(url);
   }
 
   calcularSaldoOperativo(walletId: number): number {

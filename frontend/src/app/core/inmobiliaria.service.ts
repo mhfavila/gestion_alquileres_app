@@ -5,7 +5,7 @@ import { Inmueble, Inquilino, Contrato } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class InmobiliariaService {
-  private readonly baseUrl = 'http://localhost:8080/api/inmobiliaria';
+  private readonly baseUrl = '/api/inmobiliaria';
 
   constructor(private readonly http: HttpClient) {}
 

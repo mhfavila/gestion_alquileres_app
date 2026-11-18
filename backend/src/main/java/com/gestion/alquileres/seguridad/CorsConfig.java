@@ -16,10 +16,10 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         
-        config.setAllowedOriginPatterns(List.of("http://localhost:4200"));
+        config.setAllowedOriginPatterns(List.of("http://localhost:4200", "http://localhost:*"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("*"));
-        config.setExposedHeaders(Arrays.asList("X-Context-Id"));
+        config.setAllowedHeaders(Arrays.asList("*", "X-Context-Id", "X-App-Pin", "Content-Type"));
+        config.setExposedHeaders(Arrays.asList("X-Context-Id", "X-App-Pin"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

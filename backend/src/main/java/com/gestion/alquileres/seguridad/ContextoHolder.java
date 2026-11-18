@@ -5,6 +5,7 @@ import com.gestion.alquileres.comun.Contexto;
 public final class ContextoHolder {
 
     public static final String HEADER = "X-Context-Id";
+    public static final String PIN_HEADER = "X-App-Pin";
     public static final String ATRIBUTO = "contexto";
 
     private static final ThreadLocal<Contexto> ACTUAL = new ThreadLocal<>();

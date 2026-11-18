@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,8 +25,10 @@ public class TransaccionController {
     }
 
     @GetMapping
-    public List<Transaccion> listar() {
-        return service.obtenerPorContexto();
+    public List<Transaccion> listar(
+            @RequestParam(required = false) String mes,
+            @RequestParam(required = false) Integer anio) {
+        return service.obtenerPorContexto(mes, anio);
     }
 
     @PostMapping

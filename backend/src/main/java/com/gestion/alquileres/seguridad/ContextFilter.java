@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,9 @@ public class ContextFilter extends OncePerRequestFilter {
 
     static final String PREFIJO = "/api";
 
+    @Value("${app.security.pin:1234}")
+    private String appSecurityPin;
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = pathSinContextPath(request);
@@ -34,6 +38,13 @@ public class ContextFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
+            return;
+        }
+
+        String pinHeader = request.getHeader(ContextoHolder.PIN_HEADER);
+        if (pinHeader == null || !pinHeader.trim().equals(appSecurityPin)) {
+            log.warn("Petición rechazada (401): PIN inválido o ausente en {} {}", request.getMethod(), request.getRequestURI());
+            rechazarNoAutorizado(response);
             return;
         }
 
@@ -82,5 +93,12 @@ public class ContextFilter extends OncePerRequestFilter {
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(
                 "{\"error\":\"" + mensaje + "\",\"permitidos\":[\"REAL_ESTATE\",\"HOME\",\"PERSONAL\"]}");
+    }
+
+    private static void rechazarNoAutorizado(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"error\":\"PIN de acceso inválido o ausente\"}");
     }
 }

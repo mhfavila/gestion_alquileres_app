@@ -4,6 +4,8 @@ export const CONTEXTOS = ['REAL_ESTATE', 'HOME', 'PERSONAL'] as const;
 export type ContextoId = (typeof CONTEXTOS)[number];
 
 export const CONTEXTO_HEADER = 'X-Context-Id';
+export const PIN_HEADER = 'X-App-Pin';
+export const PIN_STORAGE_KEY = 'app_pin';
 
 const STORAGE_KEY = 'gestion.contexto';
 

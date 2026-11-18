@@ -6,6 +6,8 @@ export interface Wallet {
   id: number;
   nombre: string;
   contexto: Contexto;
+  saldoActual?: number;
+  saldoRealCaja?: number;
 }
 
 export interface Categoria {

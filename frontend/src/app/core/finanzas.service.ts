@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Wallet, Categoria, Transaccion } from './models';
 import { ContextoId } from './context.service';
 
 @Injectable({ providedIn: 'root' })
 export class FinanzasService {
-  private readonly baseUrl = 'http://localhost:8080/api/finanzas';
+  private readonly baseUrl = '/api/finanzas';
 
   constructor(private readonly http: HttpClient) {}
 
@@ -41,8 +41,14 @@ export class FinanzasService {
   }
 
   // Transacciones
-  getTransacciones(): Observable<Transaccion[]> {
-    return this.http.get<Transaccion[]>(`${this.baseUrl}/transacciones`);
+  getTransacciones(filtro?: { mes?: string; anio?: string | number }): Observable<Transaccion[]> {
+    let params = new HttpParams();
+    if (filtro?.mes) {
+      params = params.set('mes', filtro.mes);
+    } else if (filtro?.anio !== undefined && filtro?.anio !== null && String(filtro.anio) !== '') {
+      params = params.set('anio', String(filtro.anio));
+    }
+    return this.http.get<Transaccion[]>(`${this.baseUrl}/transacciones`, { params });
   }
 
   createTransaccion(transaccion: Record<string, unknown>): Observable<Transaccion> {

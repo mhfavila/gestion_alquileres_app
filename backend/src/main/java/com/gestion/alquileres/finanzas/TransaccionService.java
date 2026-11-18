@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 @Service
@@ -38,8 +41,31 @@ public class TransaccionService {
     }
 
     public List<Transaccion> obtenerPorContexto() {
-        log.info("Listando transacciones del contexto {}", ContextoHolder.get());
-        return repository.findByContextoOrderByFechaDesc(ContextoHolder.get());
+        return obtenerPorContexto(null, null);
+    }
+
+    public List<Transaccion> obtenerPorContexto(String mes, Integer anio) {
+        Contexto contexto = ContextoHolder.get();
+        if (mes != null && !mes.isBlank()) {
+            try {
+                YearMonth ym = YearMonth.parse(mes.trim());
+                LocalDate inicio = ym.atDay(1);
+                LocalDate fin = ym.atEndOfMonth();
+                log.info("Listando transacciones del contexto {} filtradas por mes {} ({} a {})", contexto, ym, inicio, fin);
+                return repository.findByContextoAndFechaBetweenOrderByFechaDesc(contexto, inicio, fin);
+            } catch (DateTimeParseException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Formato de mes inválido (esperado YYYY-MM): " + mes);
+            }
+        }
+        if (anio != null) {
+            LocalDate inicio = LocalDate.of(anio, 1, 1);
+            LocalDate fin = LocalDate.of(anio, 12, 31);
+            log.info("Listando transacciones del contexto {} filtradas por año {} ({} a {})", contexto, anio, inicio, fin);
+            return repository.findByContextoAndFechaBetweenOrderByFechaDesc(contexto, inicio, fin);
+        }
+        log.info("Listando todo el histórico de transacciones del contexto {}", contexto);
+        return repository.findByContextoOrderByFechaDesc(contexto);
     }
 
     public Transaccion guardar(Transaccion transaccion) {

@@ -213,9 +213,26 @@ def realizar_traspaso(page: Page, contexto_destino_val: str, importe: str,
 # ================= FLUJO E2E COMPLETO =================
 
 def ejecutar_flujo(page: Page) -> None:
-    page.goto(BASE_URL, wait_until="networkidle")
+    for intento in range(10):
+        try:
+            page.goto(BASE_URL, wait_until="networkidle", timeout=10000)
+            break
+        except Exception:
+            if intento == 9:
+                raise
+            time.sleep(2)
+    esperar_red(page, 600)
+
+    # Desbloqueo mediante PIN maestro (X-App-Pin)
+    inp_pin = page.locator('input[name="pinAcceso"]')
+    if inp_pin.is_visible():
+        inp_pin.fill("1234")
+        page.get_by_role("button", name="Desbloquear").click()
+        esperar_red(page, 1000)
+        registrar("Seguridad PIN", "Desbloqueo con PIN maestro (1234 -> X-App-Pin)", True, "Sesión desbloqueada")
+
     page.wait_for_selector("text=Contexto activo", timeout=15000)
-    esperar_red(page, 1000)
+    esperar_red(page, 800)
 
     hoy = fecha_hoy_navegador(page)
 
@@ -383,6 +400,49 @@ def ejecutar_flujo(page: Page) -> None:
     registrar("Bloque 5", "Verificar Rentabilidad Neta por Inmueble y Totales por Categoría", True, "Inmueble #1 Neto: 440.00€ | Inmueble #2 Neto: 100.00€")
 
     shot(page, "05_transacciones_y_rentabilidad_inmuebles.png")
+
+    # Verificar Selector de Periodo Temporal Global (Mensual / Anual / Histórico)
+    mes_actual = hoy[:7]
+    mes_anterior = "2026-10" if mes_actual != "2026-10" else "2026-09"
+    saldo_caja_locator = page.locator("p.mt-2.text-2xl.font-bold").first
+    saldo_caja_antes = (saldo_caja_locator.inner_text() or "").strip()
+
+    # Cambiar a mes sin movimientos (mes_anterior)
+    page.locator('input[name="filtroMes"]').fill(mes_anterior)
+    page.locator('input[name="filtroMes"]').dispatch_event("change")
+    page.wait_for_timeout(400)
+
+    # 1. Saldo Real en Caja NO cambia
+    expect(saldo_caja_locator).to_have_text(saldo_caja_antes)
+    # 2. Resultado Operativo se recalibra a 0.00€ en el mes vacío
+    expect(page.get_by_text(f"Operativo ({mes_anterior}): 0.00€").first).to_be_visible()
+    # 3. Tabla de transacciones muestra 0 movimientos
+    expect(page.get_by_text("0 movimientos").first).to_be_visible()
+    # 4. Contratos pasan a PENDIENTE DE COBRO en el mes no cobrado
+    expect(card_contrato(page, INM_1_DIR, INQ_1_NOM)).to_contain_text(f"PENDIENTE DE COBRO ({mes_anterior})")
+
+    # Probar modo ANUAL y modo HISTORICO y restaurar mes_actual
+    page.locator('select[name="modoPeriodo"]').select_option(value="ANUAL")
+    page.wait_for_timeout(300)
+    expect(page.locator('select[name="filtroAnio"]')).to_be_visible()
+    expect(saldo_caja_locator).to_have_text(saldo_caja_antes)
+
+    page.locator('select[name="modoPeriodo"]').select_option(value="HISTORICO")
+    page.wait_for_timeout(300)
+    expect(page.get_by_text("Operativo (Histórico):").first).to_be_visible()
+
+    page.locator('select[name="modoPeriodo"]').select_option(value="MENSUAL")
+    page.wait_for_timeout(300)
+    page.locator('input[name="filtroMes"]').fill(mes_actual)
+    page.locator('input[name="filtroMes"]').dispatch_event("change")
+    page.wait_for_timeout(400)
+    expect(card_contrato(page, INM_1_DIR, INQ_1_NOM)).to_contain_text(f"COBRADO ESTE MES ({mes_actual})")
+    registrar(
+        "Bloque 5",
+        "Verificar Selector de Periodo (Mensual/Anual/Histórico) y Saldo Real fijo",
+        True,
+        f"Saldo Real fijo ({saldo_caja_antes}) | Operativo, tabla y contratos recalibrados en {mes_anterior}",
+    )
 
     # ------------------------------------------------------------------
     # BLOQUE 6: Traspasos entre Cuentas y Edición/Borrado en Espejo (Crear 3, Editar 1, Borrar 1)

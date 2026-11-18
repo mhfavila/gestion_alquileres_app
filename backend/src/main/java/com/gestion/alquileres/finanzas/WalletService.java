@@ -1,5 +1,6 @@
 package com.gestion.alquileres.finanzas;
 
+import com.gestion.alquileres.comun.Contexto;
 import com.gestion.alquileres.seguridad.ContextoHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -23,8 +25,14 @@ public class WalletService {
     }
 
     public List<Wallet> obtenerPorContexto() {
-        log.info("Listando wallets del contexto {}", ContextoHolder.get());
-        return repository.findByContextoOrderByNombreAsc(ContextoHolder.get());
+        Contexto contexto = ContextoHolder.get();
+        log.info("Listando wallets del contexto {}", contexto);
+        List<Wallet> wallets = repository.findByContextoOrderByNombreAsc(contexto);
+        for (Wallet w : wallets) {
+            BigDecimal balance = repository.calcularBalance(w.getId(), contexto).orElse(BigDecimal.ZERO);
+            w.setSaldoActual(balance);
+        }
+        return wallets;
     }
 
     public Wallet guardar(Wallet wallet) {
@@ -32,6 +40,7 @@ public class WalletService {
         log.info("Guardando wallet entrante: nombre='{}', contexto={}", wallet.getNombre(), wallet.getContexto());
         try {
             Wallet guardada = repository.save(wallet);
+            guardada.setSaldoActual(BigDecimal.ZERO);
             log.info("Wallet guardada correctamente con ID: {}", guardada.getId());
             return guardada;
         } catch (RuntimeException ex) {
