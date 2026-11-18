@@ -26,13 +26,8 @@ public class WalletService {
 
     public List<Wallet> obtenerPorContexto() {
         Contexto contexto = ContextoHolder.get();
-        log.info("Listando wallets del contexto {}", contexto);
-        List<Wallet> wallets = repository.findByContextoOrderByNombreAsc(contexto);
-        for (Wallet w : wallets) {
-            BigDecimal balance = repository.calcularBalance(w.getId(), contexto).orElse(BigDecimal.ZERO);
-            w.setSaldoActual(balance);
-        }
-        return wallets;
+        log.info("Listando wallets con saldo agregado en 1 sola query del contexto {}", contexto);
+        return repository.findByContextoConSaldoOrderByNombreAsc(contexto);
     }
 
     public Wallet guardar(Wallet wallet) {

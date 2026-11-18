@@ -9,6 +9,12 @@
 -- 5. contratos (depende de inmuebles e inquilinos)
 -- 6. transacciones (depende de wallets, categorias, inmuebles, contratos)
 
+CREATE TABLE IF NOT EXISTS configuracion_seguridad (
+    clave          VARCHAR(50)  PRIMARY KEY,
+    valor          VARCHAR(255) NOT NULL,
+    actualizado_en TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS wallets (
     id       BIGSERIAL PRIMARY KEY,
     nombre   VARCHAR(120) NOT NULL,

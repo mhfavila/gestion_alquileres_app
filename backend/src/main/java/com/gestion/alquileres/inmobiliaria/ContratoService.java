@@ -40,11 +40,20 @@ public class ContratoService {
                 contrato.getInquilino() != null ? contrato.getInquilino().getId() : null,
                 contrato.getFechaInicio(), contrato.getFechaFin(), contrato.getImporteMensual(), contrato.getFianza(), contextoActual);
 
-        if (contrato.getInmueble() == null || contrato.getInmueble().getId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Inmueble es requerido");
+        if (contrato.getInmueble() == null || contrato.getInmueble().getId() == null || contrato.getInmueble().getId() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debe seleccionar un inmueble válido");
         }
-        if (contrato.getInquilino() == null || contrato.getInquilino().getId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Inquilino es requerido");
+        if (contrato.getInquilino() == null || contrato.getInquilino().getId() == null || contrato.getInquilino().getId() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debe seleccionar un inquilino válido");
+        }
+        if (contrato.getFechaInicio() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha de inicio es obligatoria");
+        }
+        if (contrato.getFechaFin() != null && contrato.getFechaFin().isBefore(contrato.getFechaInicio())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha de fin no puede ser anterior a la fecha de inicio");
+        }
+        if (contrato.getImporteMensual() == null || contrato.getImporteMensual().signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El importe mensual debe ser mayor que cero");
         }
 
         Inmueble inmueble = inmuebleRepository.findById(contrato.getInmueble().getId())
@@ -63,6 +72,12 @@ public class ContratoService {
         if (!inquilino.getContexto().equals(contextoActual)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Inquilino pertenece a otro contexto: " + inquilino.getContexto() + ", contexto actual: " + contextoActual);
+        }
+
+        if (repository.existsByContextoAndInmuebleIdAndInquilinoIdAndFechaInicio(
+                contextoActual, inmueble.getId(), inquilino.getId(), contrato.getFechaInicio())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ya existe un contrato registrado con el mismo inmueble, inquilino y fecha de inicio");
         }
 
         contrato.setInmueble(inmueble);
@@ -99,11 +114,20 @@ public class ContratoService {
                     "Contrato pertenece a otro contexto");
         }
 
-        if (datos.getInmueble() == null || datos.getInmueble().getId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Inmueble es requerido");
+        if (datos.getInmueble() == null || datos.getInmueble().getId() == null || datos.getInmueble().getId() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debe seleccionar un inmueble válido");
         }
-        if (datos.getInquilino() == null || datos.getInquilino().getId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Inquilino es requerido");
+        if (datos.getInquilino() == null || datos.getInquilino().getId() == null || datos.getInquilino().getId() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debe seleccionar un inquilino válido");
+        }
+        if (datos.getFechaInicio() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha de inicio es obligatoria");
+        }
+        if (datos.getFechaFin() != null && datos.getFechaFin().isBefore(datos.getFechaInicio())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha de fin no puede ser anterior a la fecha de inicio");
+        }
+        if (datos.getImporteMensual() == null || datos.getImporteMensual().signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El importe mensual debe ser mayor que cero");
         }
 
         Inmueble inmueble = inmuebleRepository.findById(datos.getInmueble().getId())

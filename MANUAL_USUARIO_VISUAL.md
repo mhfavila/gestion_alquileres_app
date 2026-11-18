@@ -1,143 +1,159 @@
 # Manual de Usuario Visual — Gestión de Alquileres Multi-Contexto
 
-> **Documento validado automáticamente mediante pruebas E2E reales (`scripts/test_completo_app.py`)**.
-> Todas las capturas de pantalla corresponden a la ejecución en vivo contra **Angular 18 + Spring Boot 3 + PostgreSQL** bajo el patrón de prueba **«Crear 3 → Editar 1 → Borrar 1»**.
+> **Guía Oficial de Operativa Diaria, Control Patrimonial y Cierre Fiscal**
+> Validado al 100% mediante la suite de certificación E2E (`scripts/test_completo_app.py`) sobre **Angular 18 + Spring Boot 3.5 + PostgreSQL 17**.
+> Incluye el catálogo completo de **15 capturas reales paso a paso** en `docs/screenshots/`.
 
 ---
 
-## 1. Arquitectura de los 3 Contextos y Filtro Temporal Global
+## 1. Acceso, Seguridad con Clave Maestra y Auto-BCrypt
 
-La aplicación separa de forma estricta tres ámbitos contables mediante la cabecera `X-Context-Id` y claves foráneas compuestas en base de datos:
+Toda la información financiera y patrimonial está protegida por una capa de seguridad perimetral respaldada en PostgreSQL (`tabla configuracion_seguridad`) y validada en cada petición mediante la cabecera `X-App-Pin`.
 
-| Pestaña UI | Contexto (`X-Context-Id`) | Wallet Principal Única | Propósito Contable |
+### 1.1 Pantalla de Desbloqueo Inicial
+Al abrir la aplicación, se presenta la pantalla de bloqueo centrada:
+- Introduce tu clave maestra (por defecto `1234`) en el campo **«Introduce la clave de acceso»** y pulsa **Desbloquear**.
+
+![01 - Pantalla de bloqueo inicial](docs/screenshots/01_seguridad_pantalla_bloqueo.png)
+
+### 1.2 Protección contra Accesos No Autorizados y Fuerza Bruta
+- Si introduces una clave incorrecta, el servidor responde `401 Unauthorized` y se muestra inmediatamente el aviso en rojo **«PIN de acceso inválido o ausente»**.
+- Si una misma dirección IP acumula **5 intentos fallidos seguidos**, el sistema bloquea automáticamente esa IP durante **15 minutos** (`429 Too Many Requests`).
+
+![02 - Aviso de error ante PIN incorrecto](docs/screenshots/02_seguridad_pin_incorrecto.png)
+
+### 1.3 Cambio de Contraseña («🔑 Cambiar clave») y Cierre de Sesión («🔒 Bloquear»)
+En la esquina superior derecha dispones de dos controles de seguridad:
+1. **`🔑 Cambiar clave`**: Despliega el formulario para introducir tu **Clave actual** y la **Nueva clave** (mínimo 4 caracteres). Al pulsar **Guardar clave**, se cifra en **BCrypt (`$2a$10$...`)** en base de datos y se actualiza tu sesión sin desconectarte.
+2. **`🔒 Bloquear`**: Borra la clave de la memoria del navegador (`localStorage`) y bloquea la pantalla al instante.
+3. **Recuperación o cambio directo desde SQL (Auto-BCrypt):** Si editas la tabla `configuracion_seguridad` directamente en PostgreSQL escribiendo una contraseña en texto plano (`UPDATE configuracion_seguridad SET valor = 'MiClave' WHERE clave = 'APP_PASSWORD'`), el backend la detecta en caliente sin reiniciar y la convierte automáticamente a BCrypt en cuanto inicies sesión con ella.
+
+![03 - Formulario desplegable para cambiar la clave maestra](docs/screenshots/03_seguridad_modal_cambiar_clave.png)
+
+---
+
+## 2. Los 3 Contextos Contables y Vista General de «Cartera»
+
+La aplicación divide tus finanzas en **tres contextos aislados** que jamás mezclan sus datos:
+
+| Pestaña | Contexto (`X-Context-Id`) | Wallet Principal Única | Propósito |
 | :--- | :--- | :--- | :--- |
-| **Cartera** | `REAL_ESTATE` | `Cartera Inmobiliaria` | Gestión de patrimonio inmobiliario: pisos, garajes, locales, inquilinos, contratos y flujo de caja de alquileres. |
-| **Casa** | `HOME` | `Casa` | Economía doméstica compartida: suministros, supermercado y mantenimiento del hogar. |
-| **Personal** | `PERSONAL` | `Cuenta Principal` | Finanzas individuales: salario, ocio, deporte y gastos personales. |
+| **Cartera** | `REAL_ESTATE` | `Cartera Inmobiliaria` | Gestión de inmuebles, inquilinos, contratos de alquiler, cobros mensuales y rentabilidad por propiedad. |
+| **Casa** | `HOME` | `Casa` | Economía familiar/doméstica: supermercado, suministros, seguros y gastos del hogar. |
+| **Personal** | `PERSONAL` | `Cuenta Principal` | Economía individual: nómina/ingresos, ocio, deporte y compras personales. |
 
-### Selector de Periodo Temporal Global y Reglas Contables
-En la barra superior derecha dispones del **Filtro de Periodo Temporal** con tres modos (**Mes actual / Mensual**, **Anual** para cierres fiscales IRPF / Modelo 184, y **Todo el histórico**):
-- **Saldo Real en Caja (No filtrado):** Muestra siempre el dinero real acumulado disponible en la cuenta bancaria.
-- **Resultado Operativo del Periodo (Filtrado):** Calcula el beneficio o gasto neto del mes/año seleccionado excluyendo los `Traspasos Internos` entre tus propias cuentas.
-- **Píldoras de Categorías, Tabla de Transacciones y Rentabilidad de Inmuebles (Filtrados):** Se recalibran al instante al cambiar de mes o año.
+Cada contexto cuenta con **una única Wallet Principal** protegida, mostrando dos indicadores clave:
+- **Saldo Real en Caja (cifra grande):** Es el dinero real disponible hoy en la cuenta bancaria, calculado en PostgreSQL sobre todo el histórico (incluyendo traspasos).
+- **Resultado Operativo (`Operativo (...)`):** Es el beneficio o gasto limpio del periodo seleccionado en el filtro superior, **excluyendo los traspasos internos** entre tus propias cuentas.
 
----
-
-## 2. Wallet Principal y Categorías con Totales Acumulados
-
-En cada contexto existe **una única Wallet Principal** protegida para evitar fragmentar saldos. Justo debajo se gestionan las **Categorías** del contexto:
-1. Pulsa **Nueva categoría**, introduce el nombre y haz clic en **Crear**.
-2. Cada píldora muestra en tiempo real su **total acumulado en `€`** en el periodo activo (en verde si es positivo, en rojo si es gasto neto).
-3. Pulsa **`×`** para eliminar una categoría sin movimientos (si tiene transacciones asociadas, el backend protege la integridad devolviendo `409 Conflict`).
-
-![Wallet principal y categorías en Cartera](docs/screenshots/01_cartera_wallet_y_categorias.png)
+![04 - Vista general inicial del contexto Cartera recién desbloqueado](docs/screenshots/04_cartera_vista_general_inicial.png)
 
 ---
 
-## 3. Gestión de Inmuebles e Inquilinos (Alta, Edición y Borrado)
+## 3. Gestión de Categorías y Totales por Partida (`€`)
 
-### 3.1 Inmuebles y Modo Edición (`PUT`)
-- **Alta:** Selecciona el tipo (`Piso`, `Chalet`, `Local`, `Garaje`), dirección, referencia catastral/interna y superficie en m², y pulsa **Añadir inmueble**.
-- **Edición (`✏️`):** Al pulsar el icono de lápiz sobre cualquier inmueble, el formulario carga sus datos y el botón cambia a **Guardar cambios** (con opción de **Cancelar**).
-- **Borrado (`🗑️`):** Elimina el inmueble tras confirmación (protegido con `409 Conflict` si tiene contratos o transacciones vinculados).
+Debajo de la tarjeta de la Wallet Principal se encuentra el panel de **Categorías** del contexto activo:
+1. Pulsa **Nueva categoría**, escribe el nombre y haz clic en **Crear**.
+2. Cada categoría se muestra como una píldora con su **importe acumulado en `€`** durante el periodo seleccionado (en verde si es positivo, en rojo si es gasto neto).
+3. Pulsa **`✏️`** en cualquier píldora para renombrar la categoría (`PUT`) o **`×`** para eliminarla si no tiene movimientos asociados.
 
-![Formulario de Inmuebles en modo edición](docs/screenshots/02_inmuebles_modo_edicion.png)
-
-### 3.2 Inquilinos con Control de Documento Único
-- Registra nombre completo, email, teléfono y DNI/NIE/Pasaporte (único por contexto).
-- Permite edición directa con **`✏️`** y borrado protegido con **`🗑️`**.
-
-![CRUD completo de Inmuebles e Inquilinos](docs/screenshots/03_inmuebles_e_inquilinos_crud.png)
+![05 - Categorías creadas, editadas y con totales acumulados en Cartera](docs/screenshots/05_cartera_categorias_totales.png)
 
 ---
 
-## 4. Contratos de Alquiler y Cobro Mensual en 1 Clic
+## 4. Módulo Inmobiliario: Inmuebles e Inquilinos (`Crear`, `Editar ✏️`, `Borrar 🗑️`)
 
-En la columna **Contratos** vinculas un **Inmueble** con un **Inquilino**, definiendo fechas de vigencia, **Importe mensual** y **Fianza**:
-- **Estado de Cobro Automático:** Cada tarjeta de contrato evalúa el mes seleccionado en el filtro superior:
-  - 🟠 **`PENDIENTE DE COBRO (YYYY-MM)`**: Aún no se ha registrado el ingreso del alquiler en ese mes. Muestra el botón rápido **«Cobrar mes (+X €)»**.
-  - 🟢 **`COBRADO ESTE MES (YYYY-MM)`**: Ya consta abonada la mensualidad del periodo.
-- **Acción «Cobrar mes» en 1 clic:** Genera automáticamente la transacción de `INGRESO` por el importe mensual del contrato en la wallet principal, imputada a la categoría *Alquiler Mensual*, al contrato y al inmueble correspondiente.
+Exclusivo de la pestaña **Cartera (`REAL_ESTATE`)**, permite administrar todo tu parque inmobiliario:
 
-![Contratos de alquiler y cobro mensual en 1 clic](docs/screenshots/04_contratos_cobrar_mes.png)
+### 4.1 Inmuebles
+- **Alta:** Selecciona el tipo (`Piso`, `Chalet`, `Local`, `Garaje`), indica la **Dirección**, **Referencia** y **Metros**, y pulsa **Añadir inmueble**.
+- **Edición (`✏️`):** Carga los datos del inmueble en el formulario superior y cambia el botón a **Guardar cambios** (junto con **Cancelar**).
+- **Rentabilidad en vivo:** Cada ficha muestra sus ingresos (`+€`), gastos (`-€`) y **Neto (`€`)** en el periodo seleccionado.
 
----
+### 4.2 Inquilinos
+- **Alta y Edición (`✏️`):** Registra **Nombre**, **Email**, **Teléfono** y **Documento** (DNI/NIE/Pasaporte).
+- **Control de DNI Único (`409 Conflict`):** Si intentas registrar dos inquilinos con el mismo documento en el mismo contexto, el sistema bloquea el duplicado y muestra una alerta en pantalla.
 
-## 5. Transacciones y Rentabilidad Neta por Inmueble
-
-El formulario **Nueva transacción** registra ingresos y gastos asignándolos automáticamente a la wallet principal del contexto:
-- En **Cartera (`REAL_ESTATE`)** puedes vincular opcionalmente un **Contrato** (autocompleta inmueble e importe) o un **Inmueble** concreto (ej. *Seguro Hogar*, *Reparación fontanería*, *IBI*).
-- Cada tarjeta de **Inmueble** calcula en vivo su cuenta de explotación del periodo seleccionado:
-  - **`+Ingresos €`** (verde) · **`-Gastos €`** (rojo) · **`Neto: €`** (rentabilidad neta del activo).
-- Todas las filas de la tabla cuentan con edición inline (**`✏️`**) y eliminación (**`🗑️`**).
-
-![Transacciones y rentabilidad neta por inmueble](docs/screenshots/05_transacciones_y_rentabilidad_inmuebles.png)
+![06 - Alta y modo edición de Inmuebles e Inquilinos](docs/screenshots/06_inmobiliaria_alta_edicion_inmuebles_inquilinos.png)
 
 ---
 
-## 6. Traspasos entre Cuentas con Edición y Borrado en Espejo
+## 5. Contratos de Alquiler, Validaciones y Cobro Mensual en 1 Clic
 
-El bloque **Traspasar entre cuentas** mueve liquidez entre contextos (por ejemplo, repartir beneficios desde `Cartera` hacia `Casa` o `Personal`):
-1. Genera atómicamente dos apuntes gemelos enlazados por `traspaso_par_id` bajo la categoría **`Traspaso Interno`**: un `GASTO` en la cuenta origen y un `INGRESO` en la cuenta destino.
-2. **Edición en Espejo (`✏️`):** Al editar una transacción de traspaso, se muestra un aviso ámbar bloqueando categoría, tipo y vínculos inmobiliarios, y al guardar se actualiza el **importe, fecha y descripción simultáneamente en ambos contextos**.
-3. **Borrado en Espejo (`🗑️`):** Al eliminar un traspaso desde cualquiera de los dos contextos, se elimina automáticamente su transacción gemela en el otro contexto para mantener el cuadre contable.
+### 5.1 Validaciones Inteligentes en el Formulario de Contratos
+Al crear o editar un contrato en la tercera columna:
+- Si solo existe `1` inmueble o `1` inquilino registrado, el desplegable lo preselecciona automáticamente.
+- El sistema valida que se hayan elegido un inmueble e inquilino válidos (`> 0`), que la **Fecha de fin** (opcional; vacío = indefinido) no sea anterior a la **Fecha de inicio**, y que no se duplique un contrato idéntico (`409 Conflict`), mostrando cualquier error en un banner rojo dentro del propio formulario:
 
-![Edición en espejo de un traspaso entre contextos](docs/screenshots/06_traspaso_edicion_espejo.png)
+![07 - Banner de validación de error de fechas en el formulario de Contratos](docs/screenshots/07_contratos_validacion_error_fechas.png)
 
----
+### 5.2 Estados Dinámicos del Contrato y Botón «Cobrar mes (+X €)»
+Cada contrato evalúa automáticamente sus fechas de vigencia frente al mes seleccionado en el filtro superior (`filtroMes`):
+- 🟢 **`COBRADO ESTE MES (YYYY-MM)`**: Ya existe un ingreso de alquiler vinculado a este contrato en el mes consultado.
+- 🟠 **`PENDIENTE DE COBRO (YYYY-MM)`**: El contrato está vigente en el mes consultado y aún no se ha cobrado. Muestra el botón **«Cobrar mes (+X €)»**.
+- ⚪ **`CONTRATO FINALIZADO`**: El mes consultado es posterior a la `fechaFin` del contrato (oculta el botón de cobro).
+- ⚪ **`AÚN NO INICIADO (YYYY-MM)`**: El mes consultado es anterior a la `fechaInicio` del contrato (oculta el botón de cobro).
 
-## 7. Operativa en Contextos «Casa» (`HOME`) y «Personal» (`PERSONAL`)
+Al pulsar **«Cobrar mes (+X €)»**, se registra en 1 solo clic el `INGRESO` en la wallet principal con la categoría *Alquiler Mensual*, imputado al contrato y al inmueble correspondiente:
 
-### 7.1 Pestaña Casa (`HOME`)
-- Recibe automáticamente como `INGRESO` los traspasos enviados desde `Cartera` (incluyendo cualquier edición o borrado en espejo).
-- Permite gestionar categorías domésticas (*Supermercado*, *Luz*, etc.) y registrar, editar o eliminar gastos del hogar.
-
-![Contexto Casa con traspaso sincronizado y gastos domésticos](docs/screenshots/07_contexto_casa.png)
-
-### 7.2 Pestaña Personal (`PERSONAL`)
-- Aísla los movimientos particulares y de ocio sobre la wallet `Cuenta Principal`, reflejando también los traspasos recibidos.
-
-![Contexto Personal con traspaso recibido y movimientos personales](docs/screenshots/08_contexto_personal.png)
+![08 - Contratos mostrando simultáneamente los estados COBRADO, PENDIENTE y FINALIZADO](docs/screenshots/08_contratos_estados_y_cobro_1clic.png)
 
 ---
 
-## 8. Resumen de Pruebas E2E Ejecutadas (`Crear 3 -> Editar 1 -> Borrar 1`)
+## 6. Transacciones e Imputación de Rentabilidad Neta por Inmueble
 
-- **Lote de ejecución:** Sufijo `289` · **Fecha:** `18/11/2026 13:10`
+En el formulario **Nueva transacción** puedes registrar cualquier movimiento manual:
+- En **Cartera**, al seleccionar un **Contrato** se autocompletan el **Inmueble** y el **Importe**. También puedes imputar gastos directamente a un **Inmueble** (*IBI*, *Comunidad*, *Seguro*, *Reparaciones*).
+- Cada fila de la tabla **Transacciones** cuenta con botones para **Editar (`✏️`)** y **Eliminar (`🗑️`)**, actualizando al instante el **Saldo Real en Caja**, las **Categorías** y el **Neto de cada Inmueble**:
 
-| Bloque | Caso de Prueba Verificado | Estado | Detalle |
-| :--- | :--- | :---: | :--- |
-| **Seguridad PIN** | Desbloqueo con PIN maestro (1234 -> X-App-Pin) | ✅ OK | Sesión desbloqueada |
-| **Bloque 1** | Verificar Wallet única principal en Cartera | ✅ OK | Cartera Inmobiliaria |
-| **Bloque 1** | Crear 3 categorías en Cartera | ✅ OK | IBI_289, Comunidad_289, Basuras_289 |
-| **Bloque 1** | Borrar 1 categoría sin transacciones (×) | ✅ OK | Eliminada Basuras_289 |
-| **Bloque 2** | Crear 3 Inmuebles (Piso, Garaje, Local) | ✅ OK | Piso Centro 1 (289), Plaza Garaje 2 (289), Local Comercial 3 (289) |
-| **Bloque 2** | Editar Inmueble #2 (PUT) | ✅ OK | Plaza Garaje 2 - EDITADO (289) (18 m²) |
-| **Bloque 2** | Borrar Inmueble #3 (DELETE) | ✅ OK | Eliminado Local Comercial 3 (289) |
-| **Bloque 3** | Crear 3 Inquilinos con documentos únicos | ✅ OK | 111289A, 222289B, 333289C |
-| **Bloque 3** | Editar Inquilino #2 (PUT) | ✅ OK | Carlos Ruiz 289 (Editado) | Tel: 699888777 |
-| **Bloque 3** | Borrar Inquilino #3 (DELETE) | ✅ OK | Eliminado Marta Díaz 289 |
-| **Bloque 4** | Crear 3 Contratos vinculados | ✅ OK | 700€, 90€ y 450€ |
-| **Bloque 4** | Editar Contrato #2 (90€ -> 100€/mes) | ✅ OK | Actualizado a 100€/mes |
-| **Bloque 4** | Borrar Contrato #3 temporal (DELETE) | ✅ OK | Eliminado contrato de 450€ |
-| **Bloque 4** | Cobrar mes en 1 clic sobre Contrato #1 (+700€) | ✅ OK | Badge -> COBRADO ESTE MES |
-| **Bloque 4** | Cobrar mes en 1 clic sobre Contrato #2 (+100€) | ✅ OK | Badge -> COBRADO ESTE MES |
-| **Bloque 5** | Crear 3 Transacciones de gasto imputadas a Inmueble #1 | ✅ OK | 150€, 80€, 45€ |
-| **Bloque 5** | Editar Transacción #2 (80€ -> 110€) | ✅ OK | Reparación fontanería (Factura final) (289) |
-| **Bloque 5** | Borrar Transacción #3 errónea (45€) | ✅ OK | Eliminada Gasto erróneo a borrar (289) |
-| **Bloque 5** | Verificar Rentabilidad Neta por Inmueble y Totales por Categoría | ✅ OK | Inmueble #1 Neto: 440.00€ | Inmueble #2 Neto: 100.00€ |
-| **Bloque 5** | Verificar Selector de Periodo (Mensual/Anual/Histórico) y Saldo Real fijo | ✅ OK | Saldo Real fijo (430.00€) | Operativo, tabla y contratos recalibrados en 2026-10 |
-| **Bloque 6** | Crear 3 Traspasos entre contextos (Cartera -> Casa/Personal) | ✅ OK | 400€, 200€, 99€ |
-| **Bloque 6** | Editar en espejo Traspaso #1 (400€ -> 450€) | ✅ OK | Sincronizado en Cartera y Casa |
-| **Bloque 6** | Borrar en espejo Traspaso #3 (99€) | ✅ OK | Eliminado en origen y destino |
-| **Bloque 7** | Verificar en Casa sincronización en espejo (+450€ y ausencia de 99€) | ✅ OK | Cuadre contable verificado |
-| **Bloque 7** | Crear 3 gastos domésticos en Casa | ✅ OK | 120€, 65€, 30€ |
-| **Bloque 7** | Editar gasto doméstico en Casa (65€ -> 72€) | ✅ OK | Factura electricidad regularizada (289) |
-| **Bloque 7** | Borrar gasto doméstico duplicado en Casa (30€) | ✅ OK | Eliminado Gasto doméstico duplicado (289) |
-| **Bloque 7** | Verificar en Personal recepción de Traspaso #2 (+200€) | ✅ OK | Retirada personal (289) |
-| **Bloque 7** | Crear 3 movimientos en Personal | ✅ OK | 48€, 35€, 15€ |
-| **Bloque 7** | Editar movimiento en Personal (35€ -> 42€) | ✅ OK | Cuota gimnasio anual (289) |
-| **Bloque 7** | Borrar movimiento en Personal (15€) | ✅ OK | Eliminado Suscripción cancelada (289) |
+![09 - Tabla de transacciones y rentabilidad neta calculada por inmueble](docs/screenshots/09_finanzas_transacciones_y_rentabilidad_pisos.png)
 
 ---
-*Manual y evidencias generados automáticamente el 18/11/2026 13:10 mediante `python scripts/test_completo_app.py`.*
+
+## 7. Traspasos entre Cuentas con Edición y Borrado en Espejo
+
+El formulario **Traspasar entre cuentas** transfiere dinero entre contextos (por ejemplo, desde `Cartera` hacia `Casa` o `Personal`):
+- Crea atómicamente dos transacciones vinculadas por `traspaso_par_id` bajo la categoría **`Traspaso Interno`**: un `GASTO` en la cuenta origen y un `INGRESO` en la cuenta destino.
+- **Edición en Espejo (`✏️`):** Al editar un traspaso en la tabla, aparece el aviso ámbar *«Editando traspaso vinculado: el importe y la fecha se actualizarán automáticamente en ambos contextos»* y se bloquean los selectores estructurales. Al guardar, ambas cuentas se actualizan a la vez.
+- **Borrado en Espejo (`🗑️`):** Al borrar un traspaso desde cualquier contexto, se elimina también su transacción gemela en el otro contexto.
+
+![10 - Modo de edición en espejo de un traspaso entre contextos](docs/screenshots/10_traspasos_creacion_y_edicion_espejo.png)
+
+---
+
+## 8. Filtro Temporal Global (`Mensual` / `Anual` / `Histórico`) y Exportación CSV
+
+### 8.1 Filtrado SQL por Periodo manteniendo el Saldo Real en Caja Fijo
+Al cambiar el selector superior entre **Mes actual / Mensual**, **Anual** (para cierres fiscales de IRPF) o **Todo el histórico**:
+- El **Saldo Real en Caja** de la Wallet permanece fijo reflejando tu saldo bancario real (`-40.00€` tras los traspasos en el ejemplo).
+- El **Resultado Operativo (`+660.00€`)**, las **Píldoras de Categorías**, la **Tabla** y la **Rentabilidad por Inmueble** se recalibran en PostgreSQL para el periodo elegido:
+
+![11 - Filtro temporal en modo Anual manteniendo fijo el Saldo Real en Caja](docs/screenshots/11_filtro_temporal_mensual_anual_historico.png)
+
+### 8.2 Descarga de Informe para Excel / Hacienda («📥 Exportar CSV»)
+Al pulsar **«📥 Exportar CSV»**, se descarga un archivo `.csv` con codificación **UTF-8 con BOM (`\uFEFF`)**, separador `;`, celdas entrecomilladas blindadas contra *CSV Injection* y un bloque final con el **Resumen de Rentabilidad por Inmueble** del periodo seleccionado:
+
+![12 - Vista general tras verificar la descarga del informe CSV](docs/screenshots/12_exportacion_csv_descarga.png)
+
+---
+
+## 9. Operativa en «Casa» (`HOME`) y «Personal» (`PERSONAL`)
+
+### 9.1 Pestaña Casa (`HOME`)
+Muestra la wallet principal **`Casa`**, refleja automáticamente los ingresos recibidos por traspaso desde `Cartera` (sincronizados en espejo) y permite gestionar todos los gastos domésticos (*Supermercado*, *Suministros*, *Seguro*, *Ocio*):
+
+![13 - Contexto Casa con traspaso espejo recibido y gastos domésticos](docs/screenshots/13_contexto_casa_economia_domestica.png)
+
+### 9.2 Pestaña Personal (`PERSONAL`)
+Muestra la wallet principal **`Cuenta Principal`**, refleja los traspasos recibidos y gestiona tus ingresos (*Nómina / Ingresos*) y gastos particulares con total independencia:
+
+![14 - Contexto Personal con traspaso recibido, nómina y gastos personales](docs/screenshots/14_contexto_personal_finanzas.png)
+
+---
+
+## 10. Protección de Integridad Referencial (`409 Conflict`)
+
+El sistema protege tu histórico contable a nivel de base de datos PostgreSQL y de aplicación:
+- Si intentas eliminar una **Categoría**, **Inmueble**, **Inquilino** o **Contrato** que tenga contratos o transacciones vinculados, el servidor impide el borrado (`409 Conflict`) y muestra un banner de advertencia explicando la causa en la parte superior de la pantalla:
+
+![15 - Banner de protección de integridad referencial 409 al intentar borrar un inmueble con contratos](docs/screenshots/15_integridad_referencial_y_borrados.png)

@@ -72,4 +72,8 @@ export class FinanzasService {
   }): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/transacciones/traspaso`, request);
   }
+
+  cambiarPassword(passwordActual: string, passwordNueva: string): Observable<void> {
+    return this.http.put<void>('/api/seguridad/password', { passwordActual, passwordNueva });
+  }
 }

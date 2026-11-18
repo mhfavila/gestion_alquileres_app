@@ -6,6 +6,18 @@
 
 BEGIN;
 
+-- 0. Asegurar tabla de seguridad e inicializar clave por defecto si no existe
+CREATE TABLE IF NOT EXISTS configuracion_seguridad (
+    clave          VARCHAR(50)  PRIMARY KEY,
+    valor          VARCHAR(255) NOT NULL,
+    actualizado_en TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO configuracion_seguridad (clave, valor, actualizado_en)
+VALUES ('APP_PASSWORD', '1234', CURRENT_TIMESTAMP)
+ON CONFLICT (clave) DO UPDATE
+SET valor = EXCLUDED.valor, actualizado_en = CURRENT_TIMESTAMP;
+
 -- 1. Vaciar todas las tablas operativas y reiniciar contadores de IDs (secuencias)
 TRUNCATE TABLE
     transacciones,

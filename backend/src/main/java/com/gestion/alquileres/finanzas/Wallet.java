@@ -49,6 +49,13 @@ public class Wallet {
         this.contexto = contexto;
     }
 
+    public Wallet(Long id, String nombre, Contexto contexto, BigDecimal saldoActual) {
+        this.id = id;
+        this.nombre = nombre;
+        this.contexto = contexto;
+        this.saldoActual = saldoActual != null ? saldoActual : BigDecimal.ZERO;
+    }
+
     public void addTransaccion(Transaccion transaccion) {
         transacciones.add(transaccion);
         transaccion.setWallet(this);

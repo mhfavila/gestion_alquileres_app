@@ -5,7 +5,7 @@ import { CONTEXTO_HEADER, PIN_HEADER, PIN_STORAGE_KEY, ContextService } from './
 
 export const contextInterceptor: HttpInterceptorFn = (req, next) => {
   const contexto = inject(ContextService).contexto();
-  const esApi = req.url.includes('/api/finanzas') || req.url.includes('/api/inmobiliaria');
+  const esApi = req.url.includes('/api/');
 
   let pin = '';
   try {
